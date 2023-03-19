@@ -22,10 +22,8 @@ def update_bandwidth(download: int, upload: int):
         data=json.dumps({
             "method": "session-set",
             "arguments": {
-                "speed_limit_down_enabled": True,
-                "speed_limit_up_enabled": True,
-                "speed_limit_down": download,
-                "speed_limit_up": upload
+                "downloadLimit": download,
+                "uploadLimit": upload
             },
         }), 
         auth=transmission_auth)
