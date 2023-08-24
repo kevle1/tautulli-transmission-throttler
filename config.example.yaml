@@ -1,7 +1,8 @@
 transmission:
   username: YOUR_TRANSMISSION_USERNAME
   password: YOUR_TRANSMISSION_PASSWORD
-  baseurl: http://localhost:9091/transmission/rpc
+  host: 127.0.0.1
+  port: 9091
 
 tautulli:
   apikey: YOUR_TAUTULLI_API_KEY
@@ -10,10 +11,12 @@ tautulli:
 throttling:
   stream_count: 2
 
+webhooks: []
+
 speed: # KB/s
   normal:
-    download: 7000
-    upload: 1000
+    download: 5000
+    upload: 500
   throttled:
-    download: 3000
-    upload: 100
+    download: 5000
+    upload: 2500

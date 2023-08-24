@@ -1,52 +1,52 @@
 import requests
-import json
+from transmission_rpc import Client, TransmissionError
 import yaml
 
-with open('config.yaml', 'r') as f:
-    settings = yaml.safe_load(f)
+with open('config.yaml', 'r') as config_file:
+    config = yaml.safe_load(config_file)
 
-def update_bandwidth(download: int, upload: int): 
-    transmission_auth = (settings['transmission']['username'], settings['transmission']['password'])
-
-    # Get session ID header from first request
-    session = requests.post(settings['transmission']['baseurl'], 
-        headers={'X-Transmission-Session-Id': ''}, 
-        auth=transmission_auth)
+def get_plex_streams_count():
+    params = {"apikey": config['tautulli']['apikey'], "cmd": "get_activity"}
+    response = requests.get(f"{config['tautulli']['baseurl']}/api/v2", params=params)
+    data = response.json()
     
-    transmission_response = requests.post(
-        settings['transmission']['baseurl'], 
-        headers={
-            "X-Transmission-Session-Id": session.headers['X-Transmission-Session-Id'],
-            'Content-Type': 'application/json',
-        }, 
-        data=json.dumps({
-            "method": "session-set",
-            "arguments": {
-                "downloadLimit": download,
-                "uploadLimit": upload
-            },
-        }), 
-        auth=transmission_auth)
+    stream_count = len(data["response"]["data"]["sessions"])
+    return stream_count
 
-    print(transmission_response.json())
-    if(transmission_response.status_code == 200):
-        print("Successfully updated bandwidth settings")
+# Options https://transmission-rpc.readthedocs.io/en/v4.3.0/_modules/transmission_rpc/client.html
+def transmission_set_limit(download_limit: int, upload_limit: int):
+    try:
+        with Client(
+            host=config['transmission']['host'],
+            port=config['transmission']['port'],
+            username=config['transmission']['username'],
+            password=config['transmission']['password']
+        ) as client:
+            client.set_session(
+                speed_limit_up=upload_limit, 
+                speed_limit_up_enabled=True,
+                speed_limit_down=download_limit,
+                speed_limit_down_enabled=True)
+            print(f"Transmission upload speed limit set to {upload_limit} Kbps")
+    except TransmissionError as e:
+        print(f"Failed to set Transmission upload speed limit: {e}")
+
+def throttle_webhook(message: str):
+    for webhook_url in config['webhooks']:
+        requests.post(webhook_url, json={'content': message})
+
+def check():
+    streams_count = get_plex_streams_count()
+    print(streams_count)
+    
+    if streams_count > config['throttling']['stream_count']:
+        transmission_set_limit(config['speed']['throttled']['download'], config['speed']['throttled']['upload'])
+        throttle_webhook(f"Throttling enabled. {streams_count} streams detected.")
+    else:
+        transmission_set_limit(config['speed']['normal']['download'], config['speed']['normal']['upload'])
+        throttle_webhook(f"Throttling disabled. {streams_count} streams detected.")
 
 if __name__ == "__main__":
-    tautulli_response = requests.get(
-        settings['tautulli']['baseurl'], 
-        params={
-            'apikey': settings['tautulli']['apikey'],
-            'cmd': 'get_activity',
-            'length': 1
-        }).json()
-
-    stream_count = tautulli_response['response']['data']['stream_count']
-    speed = settings['speed']
-    
-    if int(stream_count) > settings['throttling']['stream_count']:
-        print("Stream count exceeded throttling threshold, enabling alternate (throttled) speeds on Transmission")
-        update_bandwidth(speed['throttled']['download'], speed['throttled']['upload'])
-    else:
-        print("Stream count below throttling threshold, disabling alternate (throttled) speeds on Transmission")
-        update_bandwidth(speed['normal']['download'], speed['normal']['upload'])
+    check()
+    # while True:
+    #     time.sleep(10) 
