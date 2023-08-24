@@ -9,7 +9,7 @@ tautulli:
   baseurl: http://localhost:8181/api/v2
 
 throttling:
-  stream_count: 2
+  stream_count: 1
 
 webhooks: []
 

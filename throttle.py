@@ -1,9 +1,13 @@
+import os
 import requests
 from transmission_rpc import Client, TransmissionError
 import yaml
+import logging
 
-with open('config.yaml', 'r') as config_file:
-    config = yaml.safe_load(config_file)
+logging.basicConfig(level=logging.DEBUG) 
+
+with open(f"{os.path.dirname(os.path.realpath(__file__))}/config.yaml", 'r') as stream:
+    config = yaml.safe_load(stream)
 
 def get_plex_streams_count():
     params = {"apikey": config['tautulli']['apikey'], "cmd": "get_activity"}
@@ -26,25 +30,28 @@ def transmission_set_limit(download_limit: int, upload_limit: int):
                 speed_limit_up=upload_limit, 
                 speed_limit_up_enabled=True,
                 speed_limit_down=download_limit,
-                speed_limit_down_enabled=True)
-            print(f"Transmission upload speed limit set to {upload_limit} Kbps")
+                speed_limit_down_enabled=True
+            )
+            
+        logging.info(f"Transmission download speed limit set to {download_limit} kB/s")
+        logging.info(f"Transmission upload speed limit set to {upload_limit} kB/s")
     except TransmissionError as e:
-        print(f"Failed to set Transmission upload speed limit: {e}")
+        logging.exception(f"Failed to set Transmission upload speed limit: {e}")
 
 def throttle_webhook(message: str):
+    logging.debug(f"Sending webhook: {message}")
     for webhook_url in config['webhooks']:
         requests.post(webhook_url, json={'content': message})
 
 def check():
     streams_count = get_plex_streams_count()
-    print(streams_count)
+    logging.debug(streams_count)
     
-    if streams_count > config['throttling']['stream_count']:
+    if streams_count >= config['throttling']['stream_count']:
         transmission_set_limit(config['speed']['throttled']['download'], config['speed']['throttled']['upload'])
         throttle_webhook(f"Throttling enabled. {streams_count} streams detected.")
     else:
         transmission_set_limit(config['speed']['normal']['download'], config['speed']['normal']['upload'])
-        throttle_webhook(f"Throttling disabled. {streams_count} streams detected.")
 
 if __name__ == "__main__":
     check()

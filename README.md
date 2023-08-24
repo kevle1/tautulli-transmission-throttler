@@ -13,4 +13,8 @@ pip install -r requirements.txt
 python throttle.py
 ```
 
-Add to cron tab or as a system timer. 
+Add to cron tab or as a system timer. E.g.
+
+```
+* * * * * /usr/bin/python3 /tautulli-transmission-throttler/throttle.py
+```
